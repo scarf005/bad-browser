@@ -1,0 +1,275 @@
+use crate::app::App;
+use crate::types::{AppMode, AutoScroll, RenderMode};
+use crate::utils::decode_url;
+use ratatui::{
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style, Stylize},
+    text::{Line, Span},
+    widgets::{Paragraph, Wrap},
+    Frame,
+};
+use unicode_width::UnicodeWidthChar;
+
+pub fn draw(f: &mut Frame, app: &App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(0),
+            Constraint::Length(1),
+            Constraint::Length(1),
+        ])
+        .split(f.area());
+
+    let area = chunks[0];
+
+    if app.mode == AppMode::Video {
+        render_video_mask(f, app, area);
+    } else {
+        let p = Paragraph::new(app.page_text.clone())
+            .wrap(Wrap { trim: false })
+            .scroll((app.scroll_y, 0));
+        f.render_widget(p, area);
+    }
+
+    render_status_bar(f, app, chunks[1]);
+    render_hints(f, app, chunks[2]);
+}
+
+fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
+    let status_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .split(area);
+
+    let (bg, txt) = match app.mode {
+        AppMode::Normal => {
+            if app.hint_mode_active {
+                (Color::Magenta, " HINT ")
+            } else {
+                (Color::Blue, " NOR ")
+            }
+        }
+        AppMode::Insert => (Color::Yellow, " INS "),
+        AppMode::Video => {
+            if app.engine.is_paused {
+                (Color::Gray, " PAUSE ")
+            } else {
+                (Color::Red, " VID ")
+            }
+        }
+    };
+
+    let mut left_spans = vec![
+        Span::styled(txt, Style::default().bg(bg).fg(Color::Black).bold()),
+        Span::raw(" "),
+    ];
+
+    if app.hint_mode_active {
+        left_spans.push(Span::styled(
+            format!("GOTO: {}", app.hint_buffer),
+            Style::default().fg(Color::Yellow).bold(),
+        ));
+    } else if app.mode == AppMode::Insert {
+        let nice_input = decode_url(&app.url_input);
+        let safe_cursor = app.cursor_pos.min(nice_input.len());
+        let (l, r) = nice_input.split_at(safe_cursor);
+
+        left_spans.push(Span::raw(l.to_string()));
+        left_spans.push(Span::styled("█", Style::default().fg(Color::White)));
+        left_spans.push(Span::raw(r.to_string()));
+    } else {
+        left_spans.push(Span::raw(decode_url(&app.url_input)));
+    }
+
+    if app.is_loading {
+        left_spans.push(Span::raw(" "));
+        left_spans.push(Span::styled(
+            "⏳",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::RAPID_BLINK),
+        ));
+    }
+
+    let scroll_icon = match app.auto_scroll {
+        AutoScroll::Off => "",
+        AutoScroll::Linear => " [AUTO]",
+        AutoScroll::RandomWalk => " [RAND]",
+    };
+    left_spans.push(Span::styled(scroll_icon, Style::default().fg(Color::Green)));
+
+    if app.auto_scroll != AutoScroll::Off {
+        left_spans.push(Span::styled(
+            format!(" x{:.2}", app.scroll_speed_multiplier),
+            Style::default().fg(Color::LightGreen),
+        ));
+    }
+
+    f.render_widget(
+        Paragraph::new(Line::from(left_spans)).bg(Color::DarkGray),
+        status_chunks[0],
+    );
+
+    let mut right_spans = Vec::new();
+
+    if app.mode == AppMode::Video {
+        let current = if app.engine.is_paused {
+            app.engine.seek_time
+        } else {
+            app.engine.seek_time + app.engine.start_instant.elapsed().as_secs_f64()
+        };
+
+        let total = app.engine.duration;
+        let time_str = format!(
+            "[{:02}:{:02}/{:02}:{:02}] ",
+            (current as u64) / 60,
+            (current as u64) % 60,
+            (total as u64) / 60,
+            (total as u64) % 60
+        );
+        right_spans.push(Span::styled(time_str, Style::default().fg(Color::Cyan)));
+    }
+
+    let render_txt = match app.render_mode {
+        RenderMode::Cast => "[CST]",
+        RenderMode::Fit => "[FIT]",
+    };
+
+    right_spans.push(Span::styled(
+        " [m] Mode ",
+        Style::default().fg(Color::Yellow),
+    ));
+
+    let render_style = if app.mode == AppMode::Video {
+        Style::default().fg(Color::Magenta).bold()
+    } else {
+        Style::default().fg(Color::Gray)
+    };
+    right_spans.push(Span::styled(render_txt, render_style));
+
+    f.render_widget(
+        Paragraph::new(Line::from(right_spans))
+            .alignment(Alignment::Right)
+            .bg(Color::DarkGray),
+        status_chunks[1],
+    );
+}
+
+fn render_hints(f: &mut Frame, app: &App, area: Rect) {
+    let hints = match app.mode {
+        AppMode::Insert => "[Enter] Fetch  [Esc] Cancel",
+        AppMode::Video => "[Space] Pause [q] Quit [Left/Right] Seek",
+        _ => {
+            if app.hint_mode_active {
+                "Type keys..."
+            } else {
+                "[i] URL  [f] Link  [p] Play  [s] AutoScroll  [j/k] Scroll  [h/l] History [Up/Down] Speed [m] Mode"
+            }
+        }
+    };
+    f.render_widget(
+        Paragraph::new(hints).bg(Color::Black).fg(Color::Gray),
+        area,
+    );
+}
+
+fn render_video_mask(f: &mut Frame, app: &App, area: Rect) {
+    let (buf, src_w, src_h) = {
+        let b = app.engine.buffer.lock().unwrap();
+        let w = *app.engine.source_width.lock().unwrap();
+        let h = *app.engine.source_height.lock().unwrap();
+        if b.len() == 0 {
+            f.render_widget(Paragraph::new("Buffering..."), area);
+            return;
+        }
+        (b.clone(), w, h)
+    };
+
+    let term_w = area.width as usize;
+    let term_h = area.height as usize;
+
+    let scale_w = term_w as f64 / src_w as f64;
+    let scale_h = term_h as f64 / src_h as f64;
+    let scale = scale_w.min(scale_h);
+
+    let draw_w = (src_w as f64 * scale) as usize;
+    let draw_h = (src_h as f64 * scale) as usize;
+
+    let off_x = (term_w.saturating_sub(draw_w)) / 2;
+    let off_y = (term_h.saturating_sub(draw_h)) / 2;
+
+    let mut lines = Vec::with_capacity(term_h);
+    let scroll_offset = (app.scroll_y as usize) * term_w;
+    let mut text_idx = scroll_offset % app.dense_text.len().max(1);
+
+    for y in 0..term_h {
+        let mut spans = Vec::with_capacity(term_w);
+        let mut x = 0;
+
+        while x < term_w {
+            let inside_video = x >= off_x && x < off_x + draw_w && y >= off_y && y < off_y + draw_h;
+
+            if !inside_video {
+                let ch = app.dense_text[text_idx];
+                let w = UnicodeWidthChar::width(ch).unwrap_or(1);
+                if x + w <= term_w {
+                    spans.push(Span::styled(
+                        ch.to_string(),
+                        Style::default().fg(Color::DarkGray),
+                    ));
+                }
+                x += w;
+                text_idx = (text_idx + 1) % app.dense_text.len().max(1);
+                continue;
+            }
+
+            let src_x = ((x - off_x) * src_w) / draw_w;
+            let src_y = ((y - off_y) * src_h) / draw_h;
+
+            let sx = src_x.min(src_w - 1);
+            let sy = src_y.min(src_h - 1);
+            let pixel_idx = (sy * src_w + sx).min(buf.len() - 1);
+            let brightness = buf[pixel_idx];
+
+            let ch = app.dense_text[text_idx];
+            let w = UnicodeWidthChar::width(ch).unwrap_or(1);
+
+            if x + w <= term_w {
+                let (fg, bg, modifier) = match brightness {
+                    0..=30 => (Color::Black, Color::Black, Modifier::empty()),
+                    31..=100 => (Color::DarkGray, Color::Black, Modifier::DIM),
+                    101..=200 => (Color::White, Color::Black, Modifier::empty()),
+                    201..=255 => (Color::Black, Color::White, Modifier::BOLD),
+                };
+
+                match app.render_mode {
+                    RenderMode::Cast => {
+                        if bg == Color::Black && fg == Color::Black {
+                            spans.push(Span::raw(" ".repeat(w)));
+                        } else {
+                            spans.push(Span::styled(
+                                ch.to_string(),
+                                Style::default().fg(fg).bg(bg).add_modifier(modifier),
+                            ));
+                        }
+                        text_idx = (text_idx + 1) % app.dense_text.len().max(1);
+                    }
+                    RenderMode::Fit => {
+                        if brightness > 50 {
+                            spans.push(Span::styled(
+                                ch.to_string(),
+                                Style::default().fg(fg).bg(bg).add_modifier(modifier),
+                            ));
+                            text_idx = (text_idx + 1) % app.dense_text.len().max(1);
+                        } else {
+                            spans.push(Span::raw(" ".repeat(w)));
+                        }
+                    }
+                }
+            }
+            x += w;
+        }
+        lines.push(Line::from(spans));
+    }
+    f.render_widget(Paragraph::new(lines), area);
+}
