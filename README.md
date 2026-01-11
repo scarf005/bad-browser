@@ -1,18 +1,31 @@
 # Bad Browser!! 🍎
 
-A TUI (Text User Interface) web browser with a video player to play that funny
-apple video. Developed using gemini 3.0 pro and claude 4.5 haiku/sonnet.
+| [video mode][video]                         | browser mode                          |
+| ------------------------------------------- | ------------------------------------- |
+| [![video mode](./assets/video.webp)][video] | ![browser mode](./assets/normal.webp) |
+
+**see the demo: <https://youtu.be/yZ4uIgKP9bE>**
+
+[video]: <https://youtu.be/yZ4uIgKP9bE>
+
+A modal TUI (Text User Interface) web browser specifically designed to play Bad Apple!!. Developed using gemini 3.0 pro and claude 4.5 sonnet.
 
 ## Requirements
 
-- Rust (cargo)
+- [rust](https://rust-lang.org)
 - `ffmpeg` (to process the video frames)
 
 ## Usage
 
 ```bash
-cargo build --release -- ./path/to/video.mp4
+cargo install --path .
+bad-browser --video ./path/to/video.mp4 --demo bad-apple.demo
 ```
+
+### Recommended
+
+- https://github.com/Swordfish90/cool-retro-term
+- https://github.com/zevv/bucklespring
 
 ## License
 

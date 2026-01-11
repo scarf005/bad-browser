@@ -1,10 +1,10 @@
 use crate::types::BgEvent;
 use crate::utils::{decode_url, log_msg};
 use regex::{Captures, Regex};
-use reqwest::blocking::Client;
 use reqwest::Url;
+use reqwest::blocking::Client;
 use std::collections::HashMap;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::SyncSender;
 use std::thread;
 use std::time::Duration;
 
@@ -12,11 +12,11 @@ const USER_AGENT: &str = "bad-browser/1.0";
 
 pub struct WebEngine {
     client: Client,
-    tx: Sender<BgEvent>,
+    tx: SyncSender<BgEvent>,
 }
 
 impl WebEngine {
-    pub fn new(tx: Sender<BgEvent>) -> Self {
+    pub fn new(tx: SyncSender<BgEvent>) -> Self {
         let client = Client::builder()
             .user_agent(USER_AGENT)
             .timeout(Duration::from_secs(10))
@@ -25,13 +25,7 @@ impl WebEngine {
         Self { client, tx }
     }
 
-    pub fn fetch(
-        &self,
-        current_url: &str,
-        target: String,
-        is_prefetch: bool,
-        is_history: bool,
-    ) {
+    pub fn fetch(&self, current_url: &str, target: String, is_prefetch: bool, is_history: bool) {
         let client = self.client.clone();
         let tx = self.tx.clone();
         let base_str = current_url.to_string();
@@ -39,15 +33,12 @@ impl WebEngine {
         thread::spawn(move || {
             let base = Url::parse(&base_str).ok();
             let target_url = match base {
-                Some(b) => b
-                    .join(&target)
-                    .map(|u| u.to_string())
-                    .unwrap_or(target),
+                Some(b) => b.join(&target).map(|u| u.to_string()).unwrap_or(target),
                 None => target,
             };
 
             if !is_prefetch {
-                log_msg("info", &format!("Fetching URL: {}", target_url));
+                log_msg("info", &format!("Fetching URL: {target_url}"));
             }
 
             match client.get(&target_url).send() {
@@ -76,7 +67,8 @@ impl WebEngine {
                         };
                         let _ = tx.send(event);
                     } else if !is_prefetch {
-                        let _ = tx.send(BgEvent::Error(format!("HTTP {}", resp.status())));
+                        let status = resp.status();
+                        let _ = tx.send(BgEvent::Error(format!("HTTP {status}")));
                     }
                 }
                 Err(e) => {
@@ -93,7 +85,7 @@ fn parse_html(html: &str) -> (String, Vec<char>, HashMap<String, String>, Vec<St
     let mut hint_gen = (0..).map(|i| {
         let a = (b'a' + (i % 26)) as char;
         let b = (b'a' + (i / 26)) as char;
-        format!("{}{}", b, a)
+        format!("{b}{a}")
     });
 
     let mut link_map = HashMap::new();

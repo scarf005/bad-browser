@@ -1,5 +1,11 @@
 use std::collections::HashMap;
 
+#[derive(Clone, Debug)]
+pub struct ScriptEntry {
+    pub timestamp: f64,
+    pub url: String,
+}
+
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum AppMode {
     Normal,
@@ -12,6 +18,7 @@ pub enum AutoScroll {
     Off,
     Linear,
     RandomWalk,
+    Demo,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]

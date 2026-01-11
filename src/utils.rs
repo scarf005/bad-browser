@@ -7,7 +7,7 @@ pub fn log_msg(level: &str, msg: &str) {
     if let Ok(mut file) = OpenOptions::new()
         .create(true)
         .append(true)
-        .open("badlynx.log")
+        .open("bad-browser.log")
     {
         let now: DateTime<Local> = Local::now();
         let _ = writeln!(

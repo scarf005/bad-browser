@@ -25,11 +25,11 @@ pub struct VideoEngine {
     pub is_paused: bool,
 
     video_path: String,
-    tx: std::sync::mpsc::Sender<BgEvent>,
+    tx: std::sync::mpsc::SyncSender<BgEvent>,
 }
 
 impl VideoEngine {
-    pub fn new(video_path: String, tx: std::sync::mpsc::Sender<BgEvent>) -> Self {
+    pub fn new(video_path: String, tx: std::sync::mpsc::SyncSender<BgEvent>) -> Self {
         let duration = Self::get_video_duration(&video_path).unwrap_or(0.0);
         Self {
             buffer: Arc::new(Mutex::new(Vec::new())),
@@ -82,7 +82,7 @@ impl VideoEngine {
             *lock = vec![0u8; term_w * term_h];
         }
 
-        let seek_str = format!("{:.2}", seek_seconds);
+        let seek_str = format!("{seek_seconds:.2}");
         let ffmpeg_child = Command::new("ffmpeg")
             .args(&[
                 "-ss",
@@ -95,7 +95,7 @@ impl VideoEngine {
                 "-pix_fmt",
                 "gray",
                 "-s",
-                &format!("{}x{}", term_w, term_h),
+                &format!("{term_w}x{term_h}"),
                 "-v",
                 "quiet",
                 "-",
@@ -142,10 +142,7 @@ impl VideoEngine {
                         }
                     }
                 }
-                log_msg(
-                    "info",
-                    &format!("Video Thread {} Ended", current_session_id),
-                );
+                log_msg("info", &format!("Video Thread {current_session_id} Ended"));
             });
         }
     }
@@ -159,8 +156,7 @@ impl VideoEngine {
 
     pub fn toggle_pause(&mut self) {
         self.is_paused = !self.is_paused;
-        self.pause_signal
-            .store(self.is_paused, Ordering::Relaxed);
+        self.pause_signal.store(self.is_paused, Ordering::Relaxed);
 
         if self.is_paused {
             let elapsed = self.start_instant.elapsed().as_secs_f64();
@@ -223,23 +219,32 @@ impl VideoEngine {
         }
 
         if let Some(mut child) = self.audio_process.take() {
+            let pid = child.id();
             let _ = child.kill();
             let _ = child.wait();
+            // Ensure it's really dead
+            let _ = Command::new("kill").arg("-9").arg(pid.to_string()).output();
         }
 
         if let Some(mut child) = self.ffmpeg_process.take() {
+            let pid = child.id();
             let _ = child.kill();
             let _ = child.wait();
+            // Ensure it's really dead
+            let _ = Command::new("kill").arg("-9").arg(pid.to_string()).output();
         }
     }
 
     fn spawn_audio(&mut self, seek_seconds: f64) {
         if let Some(mut old) = self.audio_process.take() {
+            let pid = old.id();
             let _ = old.kill();
             let _ = old.wait();
+            // Ensure it's really dead
+            let _ = Command::new("kill").arg("-9").arg(pid.to_string()).output();
         }
 
-        let seek_str = format!("{:.2}", seek_seconds);
+        let seek_str = format!("{seek_seconds:.2}");
 
         let child = Command::new("ffplay")
             .args(&[

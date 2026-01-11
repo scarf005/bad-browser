@@ -2,11 +2,11 @@ use crate::app::App;
 use crate::types::{AppMode, AutoScroll, RenderMode};
 use crate::utils::decode_url;
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{Paragraph, Wrap},
-    Frame,
 };
 use unicode_width::UnicodeWidthChar;
 
@@ -25,7 +25,7 @@ pub fn draw(f: &mut Frame, app: &App) {
     if app.mode == AppMode::Video {
         render_video_mask(f, app, area);
     } else {
-        let p = Paragraph::new(app.page_text.clone())
+        let p = Paragraph::new(app.page_text.as_ref().as_str())
             .wrap(Wrap { trim: false })
             .scroll((app.scroll_y, 0));
         f.render_widget(p, area);
@@ -95,12 +95,14 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
         AutoScroll::Off => "",
         AutoScroll::Linear => " [AUTO]",
         AutoScroll::RandomWalk => " [RAND]",
+        AutoScroll::Demo => " [DEMO]",
     };
     left_spans.push(Span::styled(scroll_icon, Style::default().fg(Color::Green)));
 
     if app.auto_scroll != AutoScroll::Off {
+        let scroll_speed_multiplier = app.scroll_speed_multiplier;
         left_spans.push(Span::styled(
-            format!(" x{:.2}", app.scroll_speed_multiplier),
+            format!(" x{scroll_speed_multiplier:.2}"),
             Style::default().fg(Color::LightGreen),
         ));
     }
@@ -120,6 +122,21 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
         };
 
         let total = app.engine.duration;
+
+        let progress_width = 13;
+        let progress = if total > 0.0 {
+            (current / total * progress_width as f64).round() as usize
+        } else {
+            0
+        };
+        let progress = progress.min(progress_width);
+
+        let filled = "━".repeat(progress);
+        let empty = " ".repeat(progress_width.saturating_sub(progress));
+        let bar = format!("[{filled}{empty}]");
+
+        right_spans.push(Span::styled(bar, Style::default().fg(Color::Green)));
+
         let time_str = format!(
             "[{:02}:{:02}/{:02}:{:02}] ",
             (current as u64) / 60,
@@ -162,15 +179,14 @@ fn render_hints(f: &mut Frame, app: &App, area: Rect) {
         _ => {
             if app.hint_mode_active {
                 "Type keys..."
+            } else if !app.demo.is_empty() {
+                "[i] URL  [f] Link  [p] Play  [j/k] Scroll  [h/l] History"
             } else {
-                "[i] URL  [f] Link  [p] Play  [s] AutoScroll  [j/k] Scroll  [h/l] History [Up/Down] Speed [m] Mode"
+                "[i] URL  [f] Link  [p] Play  [s] AutoScroll  [r] RAND  [j/k] Scroll  [h/l] History [Up/Down] Speed"
             }
         }
     };
-    f.render_widget(
-        Paragraph::new(hints).bg(Color::Black).fg(Color::Gray),
-        area,
-    );
+    f.render_widget(Paragraph::new(hints).bg(Color::Black).fg(Color::Gray), area);
 }
 
 fn render_video_mask(f: &mut Frame, app: &App, area: Rect) {
