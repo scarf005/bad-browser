@@ -22,6 +22,8 @@ cargo install --path .
 bad-browser --video ./path/to/video.mp4 --demo bad-apple.demo
 ```
 
+- Localization: set `--lang en|ko|ja` or `BAD_BROWSER_LOCALE`/`LANG` to switch UI language (powered by rust-i18n).
+
 ### Recommended
 
 - https://github.com/Swordfish90/cool-retro-term

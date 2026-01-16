@@ -1,4 +1,6 @@
 use crate::app::App;
+use crate::i18n::t;
+use crate::text::clamp_cursor;
 use crate::types::{AppMode, AutoScroll, RenderMode};
 use crate::utils::decode_url;
 use ratatui::{
@@ -44,17 +46,17 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
     let (bg, txt) = match app.mode {
         AppMode::Normal => {
             if app.hint_mode_active {
-                (Color::Magenta, " HINT ")
+                (Color::Magenta, format!(" {} ", t!("status.hint")))
             } else {
-                (Color::Blue, " NOR ")
+                (Color::Blue, format!(" {} ", t!("status.normal")))
             }
         }
-        AppMode::Insert => (Color::Yellow, " INS "),
+        AppMode::Insert => (Color::Yellow, format!(" {} ", t!("status.insert"))),
         AppMode::Video => {
             if app.engine.is_paused {
-                (Color::Gray, " PAUSE ")
+                (Color::Gray, format!(" {} ", t!("status.pause")))
             } else {
-                (Color::Red, " VID ")
+                (Color::Red, format!(" {} ", t!("status.video")))
             }
         }
     };
@@ -66,12 +68,12 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
 
     if app.hint_mode_active {
         left_spans.push(Span::styled(
-            format!("GOTO: {}", app.hint_buffer),
+            t!("status.goto_prefix", hint = app.hint_buffer),
             Style::default().fg(Color::Yellow).bold(),
         ));
     } else if app.mode == AppMode::Insert {
         let nice_input = decode_url(&app.url_input);
-        let safe_cursor = app.cursor_pos.min(nice_input.len());
+        let safe_cursor = clamp_cursor(&nice_input, app.cursor_pos);
         let (l, r) = nice_input.split_at(safe_cursor);
 
         left_spans.push(Span::raw(l.to_string()));
@@ -152,10 +154,7 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
         RenderMode::Fit => "[FIT]",
     };
 
-    right_spans.push(Span::styled(
-        " [m] Mode ",
-        Style::default().fg(Color::Yellow),
-    ));
+    right_spans.push(Span::styled(t!("labels.mode_toggle"), Style::default().fg(Color::Yellow)));
 
     let render_style = if app.mode == AppMode::Video {
         Style::default().fg(Color::Magenta).bold()
@@ -174,15 +173,15 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
 
 fn render_hints(f: &mut Frame, app: &App, area: Rect) {
     let hints = match app.mode {
-        AppMode::Insert => "[Enter] Fetch  [Esc] Cancel",
-        AppMode::Video => "[Space] Pause [q] Quit [Left/Right] Seek",
+        AppMode::Insert => t!("hints.insert"),
+        AppMode::Video => t!("hints.video"),
         _ => {
             if app.hint_mode_active {
-                "Type keys..."
+                t!("hints.link_typing")
             } else if !app.demo.is_empty() {
-                "[i] URL  [f] Link  [p] Play  [j/k] Scroll  [h/l] History"
+                t!("hints.demo")
             } else {
-                "[i] URL  [f] Link  [p] Play  [s] AutoScroll  [r] RAND  [j/k] Scroll  [h/l] History [Up/Down] Speed"
+                t!("hints.normal")
             }
         }
     };
@@ -195,7 +194,7 @@ fn render_video_mask(f: &mut Frame, app: &App, area: Rect) {
         let w = *app.engine.source_width.lock().unwrap();
         let h = *app.engine.source_height.lock().unwrap();
         if b.len() == 0 {
-            f.render_widget(Paragraph::new("Buffering..."), area);
+            f.render_widget(Paragraph::new(t!("ui.buffering")), area);
             return;
         }
         (b.clone(), w, h)

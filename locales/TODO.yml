@@ -1,0 +1,30 @@
+_version: 2
+errors.generic:
+  en: generic
+hints.demo:
+  en: demo
+hints.insert:
+  en: insert
+hints.link_typing:
+  en: link_typing
+hints.normal:
+  en: normal
+hints.video:
+  en: video
+labels.mode_toggle:
+  en: mode_toggle
+status.goto_prefix:
+  en: goto_prefix
+status.hint:
+  en: hint
+status.insert:
+  en: insert
+status.normal:
+  en: normal
+status.pause:
+  en: pause
+status.video:
+  en: video
+ui.buffering:
+  en: buffering
+

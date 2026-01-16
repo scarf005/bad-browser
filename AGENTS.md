@@ -1,0 +1,4 @@
+- do atomic commit and conventional commit
+- take account of CJK
+- inline variable names in format!, e.g (`format!("{foo} {bar}", bar = baz())`)
+- prefer FP

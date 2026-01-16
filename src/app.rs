@@ -1,3 +1,8 @@
+use crate::i18n::t;
+use crate::text::{
+    clamp_cursor, delete_next_grapheme, delete_prev_grapheme, delete_word, insert_grapheme,
+    move_left_grapheme, move_right_grapheme, move_word_backward, move_word_forward,
+};
 use crate::types::*;
 use crate::utils::log_msg;
 use crate::video::VideoEngine;
@@ -194,7 +199,7 @@ impl App {
                 BgEvent::Error(e) => {
                     log_msg("error", &format!("{e}"));
                     self.is_loading = false;
-                    self.page_text = Arc::new(format!("Error: {e}"));
+                    self.page_text = Arc::new(t!("errors.generic", error = e));
                 }
             }
         }
@@ -363,32 +368,35 @@ impl App {
             KeyCode::Backspace => {
                 if modifiers.contains(KeyModifiers::ALT) {
                     self.delete_word();
-                } else if self.cursor_pos > 0 {
-                    self.url_input.remove(self.cursor_pos - 1);
-                    self.cursor_pos -= 1;
+                } else {
+                    delete_prev_grapheme(&mut self.url_input, &mut self.cursor_pos);
                 }
             }
-            KeyCode::Char('h') if modifiers.contains(KeyModifiers::CONTROL) && !modifiers.contains(KeyModifiers::SHIFT) => {
+            KeyCode::Char('h')
+                if modifiers.contains(KeyModifiers::CONTROL)
+                    && !modifiers.contains(KeyModifiers::SHIFT) =>
+            {
                 // Ctrl+H is backspace on many terminals
                 if modifiers.contains(KeyModifiers::ALT) {
                     self.delete_word();
-                } else if self.cursor_pos > 0 {
-                    self.url_input.remove(self.cursor_pos - 1);
-                    self.cursor_pos -= 1;
+                } else {
+                    delete_prev_grapheme(&mut self.url_input, &mut self.cursor_pos);
                 }
             }
             KeyCode::Delete => {
-                if self.cursor_pos < self.url_input.len() {
-                    self.url_input.remove(self.cursor_pos);
-                }
+                delete_next_grapheme(&mut self.url_input, &mut self.cursor_pos);
             }
             KeyCode::Char('w') if modifiers.contains(KeyModifiers::CONTROL) => self.delete_word(),
             KeyCode::Char('u') if modifiers.contains(KeyModifiers::CONTROL) => {
-                self.url_input.replace_range(..self.cursor_pos, "");
+                if self.cursor_pos > 0 {
+                    self.url_input.drain(..self.cursor_pos);
+                }
                 self.cursor_pos = 0;
             }
             KeyCode::Char('k') if modifiers.contains(KeyModifiers::CONTROL) => {
-                self.url_input.truncate(self.cursor_pos);
+                let cursor = clamp_cursor(&self.url_input, self.cursor_pos);
+                self.url_input.truncate(cursor);
+                self.cursor_pos = cursor;
             }
             KeyCode::Char('a') if modifiers.contains(KeyModifiers::CONTROL) => {
                 self.cursor_pos = 0;
@@ -402,19 +410,18 @@ impl App {
                 if modifiers.contains(KeyModifiers::CONTROL) {
                     self.move_word_backward();
                 } else {
-                    self.cursor_pos = self.cursor_pos.saturating_sub(1);
+                    move_left_grapheme(&self.url_input, &mut self.cursor_pos);
                 }
             }
             KeyCode::Right => {
                 if modifiers.contains(KeyModifiers::CONTROL) {
                     self.move_word_forward();
                 } else {
-                    self.cursor_pos = (self.cursor_pos + 1).min(self.url_input.len());
+                    move_right_grapheme(&self.url_input, &mut self.cursor_pos);
                 }
             }
             KeyCode::Char(c) if modifiers.is_empty() || modifiers == KeyModifiers::SHIFT => {
-                self.url_input.insert(self.cursor_pos, c);
-                self.cursor_pos += 1;
+                insert_grapheme(&mut self.url_input, &mut self.cursor_pos, c);
             }
             _ => {}
         }
@@ -424,38 +431,15 @@ impl App {
         if self.cursor_pos == 0 {
             return;
         }
-        let prefix = &self.url_input[..self.cursor_pos];
-        let new_pos = prefix.trim_end().rfind(' ').map(|i| i + 1).unwrap_or(0);
-        self.url_input.replace_range(new_pos..self.cursor_pos, "");
-        self.cursor_pos = new_pos;
+        delete_word(&mut self.url_input, &mut self.cursor_pos);
     }
 
     fn move_word_backward(&mut self) {
-        if self.cursor_pos == 0 {
-            return;
-        }
-        let prefix = &self.url_input[..self.cursor_pos];
-        let trimmed = prefix.trim_end();
-        if let Some(pos) = trimmed.rfind(' ') {
-            self.cursor_pos = pos + 1;
-        } else if !trimmed.is_empty() {
-            self.cursor_pos = 0;
-        }
+        move_word_backward(&self.url_input, &mut self.cursor_pos);
     }
 
     fn move_word_forward(&mut self) {
-        if self.cursor_pos >= self.url_input.len() {
-            return;
-        }
-        let suffix = &self.url_input[self.cursor_pos..];
-        if let Some(pos) = suffix.find(' ') {
-            self.cursor_pos += pos + 1;
-            while self.cursor_pos < self.url_input.len() && self.url_input.as_bytes()[self.cursor_pos] == b' ' {
-                self.cursor_pos += 1;
-            }
-        } else {
-            self.cursor_pos = self.url_input.len();
-        }
+        move_word_forward(&self.url_input, &mut self.cursor_pos);
     }
 
     pub fn scroll_down(&mut self, term_h: u16) {
@@ -526,6 +510,7 @@ impl App {
         {
             self.current_url = url.clone();
             self.url_input = url;
+            self.cursor_pos = self.url_input.len();
             self.page_text = Arc::new(text);
             self.dense_text = Arc::new(dense_text);
             self.link_map = Arc::new(link_map);
@@ -564,6 +549,7 @@ impl App {
         if let Some((text, dense_text, link_map, links)) = self.demo_cache.get(url) {
             self.current_url = url.clone();
             self.url_input = url.clone();
+            self.cursor_pos = self.url_input.len();
             self.page_text = Arc::clone(text);
             self.dense_text = Arc::clone(dense_text);
             self.link_map = Arc::clone(link_map);

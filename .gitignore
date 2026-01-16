@@ -16,3 +16,6 @@ target
 *.kate-swp
 *.webm
 recordings
+
+*.mp4
+*.webm

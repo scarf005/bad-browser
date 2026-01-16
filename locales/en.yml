@@ -1,0 +1,20 @@
+_version: 1
+status:
+  normal: "NOR"
+  hint: "HINT"
+  insert: "INS"
+  video: "VID"
+  pause: "PAUSE"
+  goto_prefix: "GOTO: %{hint}"
+labels:
+  mode_toggle: " [m] Mode "
+ui:
+  buffering: "Buffering..."
+hints:
+  insert: "[Enter] Fetch  [Esc] Cancel"
+  video: "[Space] Pause [q] Quit [Left/Right] Seek"
+  link_typing: "Type keys..."
+  demo: "[i] URL  [f] Link  [p] Play  [j/k] Scroll  [h/l] History"
+  normal: "[i] URL  [f] Link  [p] Play  [s] AutoScroll  [r] RAND  [j/k] Scroll  [h/l] History [Up/Down] Speed"
+errors:
+  generic: "Error: %{error}"

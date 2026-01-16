@@ -1,9 +1,13 @@
 mod app;
+mod i18n;
 mod types;
+mod text;
 mod ui;
 mod utils;
 mod video;
 mod web;
+
+rust_i18n::i18n!("locales");
 
 use anyhow::Result;
 use app::App;
@@ -28,6 +32,8 @@ struct Cli {
     start_url: String,
     #[arg(long)]
     demo: Option<String>,
+    #[arg(long, env = "BAD_BROWSER_LOCALE")]
+    lang: Option<String>,
 }
 
 fn parse_demo(path: &str) -> Result<Vec<ScriptEntry>> {
@@ -80,6 +86,7 @@ fn parse_timestamp(s: &str) -> Result<f64> {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    i18n::init_locale(cli.lang.as_deref());
 
     let demo = if let Some(demo_path) = &cli.demo {
         parse_demo(demo_path)?

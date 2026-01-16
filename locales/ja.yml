@@ -1,0 +1,20 @@
+_version: 1
+status:
+  normal: "通常"
+  hint: "ヒント"
+  insert: "入力"
+  video: "動画"
+  pause: "一時停止"
+  goto_prefix: "移動: %{hint}"
+labels:
+  mode_toggle: " [m] モード "
+ui:
+  buffering: "バッファ中..."
+hints:
+  insert: "[Enter] 取得  [Esc] キャンセル"
+  video: "[Space] 一時停止 [q] 終了 [Left/Right] シーク"
+  link_typing: "キーを入力してください..."
+  demo: "[i] URL  [f] リンク  [p] 再生  [j/k] スクロール  [h/l] 履歴"
+  normal: "[i] URL  [f] リンク  [p] 再生  [s] 自動スクロール  [r] ランダム  [j/k] スクロール  [h/l] 履歴 [Up/Down] 速度"
+errors:
+  generic: "エラー: %{error}"
