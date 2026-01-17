@@ -1,7 +1,7 @@
 mod app;
 mod i18n;
-mod types;
 mod text;
+mod types;
 mod ui;
 mod utils;
 mod video;

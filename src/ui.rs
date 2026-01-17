@@ -40,7 +40,7 @@ pub fn draw(f: &mut Frame, app: &App) {
 fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
     let status_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(area);
 
     let (bg, txt) = match app.mode {
@@ -149,12 +149,27 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
         right_spans.push(Span::styled(time_str, Style::default().fg(Color::Cyan)));
     }
 
+    if app.mode == AppMode::Video && !app.demo.is_empty() {
+        let (autoplay_text, autoplay_color) = if app.autoplay {
+            (format!("[{}] ", t!("labels.autoplay_on")), Color::Green)
+        } else {
+            (format!("[{}] ", t!("labels.autoplay_off")), Color::Red)
+        };
+        right_spans.push(Span::styled(
+            autoplay_text,
+            Style::default().fg(autoplay_color).bold(),
+        ));
+    }
+
     let render_txt = match app.render_mode {
         RenderMode::Cast => "[CST]",
         RenderMode::Fit => "[FIT]",
     };
 
-    right_spans.push(Span::styled(t!("labels.mode_toggle"), Style::default().fg(Color::Yellow)));
+    right_spans.push(Span::styled(
+        t!("labels.mode_toggle"),
+        Style::default().fg(Color::Yellow),
+    ));
 
     let render_style = if app.mode == AppMode::Video {
         Style::default().fg(Color::Magenta).bold()
@@ -172,6 +187,11 @@ fn render_status_bar(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_hints(f: &mut Frame, app: &App, area: Rect) {
+    let hints_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .split(area);
+
     let hints = match app.mode {
         AppMode::Insert => t!("hints.insert"),
         AppMode::Video => t!("hints.video"),
@@ -185,7 +205,20 @@ fn render_hints(f: &mut Frame, app: &App, area: Rect) {
             }
         }
     };
-    f.render_widget(Paragraph::new(hints).bg(Color::Black).fg(Color::Gray), area);
+    f.render_widget(
+        Paragraph::new(hints).bg(Color::Black).fg(Color::Gray),
+        hints_chunks[0],
+    );
+
+    if app.mode == AppMode::Video && !app.demo.is_empty() {
+        f.render_widget(
+            Paragraph::new(t!("labels.autoplay_hint"))
+                .alignment(Alignment::Right)
+                .bg(Color::Black)
+                .fg(Color::Gray),
+            hints_chunks[1],
+        );
+    }
 }
 
 fn render_video_mask(f: &mut Frame, app: &App, area: Rect) {

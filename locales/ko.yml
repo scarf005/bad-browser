@@ -8,6 +8,9 @@ status:
   goto_prefix: "이동: %{hint}"
 labels:
   mode_toggle: " [m] 모드 "
+  autoplay_on: "자동재생:켜짐"
+  autoplay_off: "자동재생:꺼짐"
+  autoplay_hint: "[p] 자동재생 토글"
 ui:
   buffering: "버퍼링 중..."
 hints:
@@ -18,3 +21,6 @@ hints:
   normal: "[i] URL  [f] 링크  [p] 재생  [s] 자동스크롤  [r] 랜덤  [j/k] 스크롤  [h/l] 기록 [Up/Down] 속도"
 errors:
   generic: "오류: %{error}"
+logs:
+  autoplay_enabled: "데모 자동재생 활성화됨"
+  autoplay_disabled: "데모 자동재생 비활성화됨"

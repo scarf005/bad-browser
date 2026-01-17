@@ -8,6 +8,9 @@ status:
   goto_prefix: "GOTO: %{hint}"
 labels:
   mode_toggle: " [m] Mode "
+  autoplay_on: "AUTO:ON"
+  autoplay_off: "AUTO:OFF"
+  autoplay_hint: "[p] Toggle Autoplay"
 ui:
   buffering: "Buffering..."
 hints:
@@ -18,3 +21,6 @@ hints:
   normal: "[i] URL  [f] Link  [p] Play  [s] AutoScroll  [r] RAND  [j/k] Scroll  [h/l] History [Up/Down] Speed"
 errors:
   generic: "Error: %{error}"
+logs:
+  autoplay_enabled: "Demo autoplay enabled"
+  autoplay_disabled: "Demo autoplay disabled"

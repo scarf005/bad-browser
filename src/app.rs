@@ -61,6 +61,7 @@ pub struct App {
             Arc<Vec<String>>,
         ),
     >,
+    pub autoplay: bool,
 }
 
 impl App {
@@ -103,6 +104,7 @@ impl App {
             last_prefetch_index: None,
             demo_cache: HashMap::new(),
             demo,
+            autoplay: false,
         };
 
         app.trigger_fetch(start_url, false, false);
@@ -193,7 +195,17 @@ impl App {
                 BgEvent::VideoEnded(id) => {
                     if self.mode == AppMode::Video && id == self.engine.session_id {
                         log_msg("info", "Video Ended Naturally");
-                        self.stop_video();
+                        if self.autoplay && !self.demo.is_empty() {
+                            log_msg("info", "Autoplay: Restarting video");
+                            self.demo_index = 0;
+                            let term_w = *self.engine.source_width.lock().unwrap();
+                            let term_h = *self.engine.source_height.lock().unwrap();
+                            self.engine.start(term_w, term_h, 0.0);
+                            self.apply_demo_page(0);
+                            self.demo_index = 1;
+                        } else {
+                            self.stop_video();
+                        }
                     }
                 }
                 BgEvent::Error(e) => {
@@ -255,8 +267,17 @@ impl App {
                     }
                     KeyCode::Char('p') => {
                         let is_running = self.engine.current_stopper.is_some();
-                        if self.mode == AppMode::Video && is_running {
-                            self.stop_video();
+                        if self.mode == AppMode::Video {
+                            if !self.demo.is_empty() {
+                                self.autoplay = !self.autoplay;
+                                if self.autoplay {
+                                    log_msg("info", &t!("logs.autoplay_enabled"));
+                                } else {
+                                    log_msg("info", &t!("logs.autoplay_disabled"));
+                                }
+                            } else if !is_running {
+                                self.stop_video();
+                            }
                         } else if !is_running {
                             self.engine.start(term_w as usize, term_h as usize, 0.0);
                             self.mode = AppMode::Video;
@@ -271,7 +292,6 @@ impl App {
                                         self.demo_cache.len()
                                     ),
                                 );
-                                // Force apply first page immediately
                                 self.apply_demo_page(0);
                                 self.demo_index = 1;
                             }
@@ -469,6 +489,7 @@ impl App {
         self.demo_index = 0;
         self.last_prefetch_index = None;
         self.auto_scroll = AutoScroll::Off;
+        self.autoplay = false;
     }
 
     fn trigger_random_prefetch(&mut self) {
