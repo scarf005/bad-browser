@@ -233,6 +233,11 @@ fn render_video_mask(f: &mut Frame, app: &App, area: Rect) {
         (b.clone(), w, h)
     };
 
+    if app.dense_text.len() == 0 {
+        f.render_widget(Paragraph::new(t!("ui.buffering")), area);
+        return;
+    }
+
     let term_w = area.width as usize;
     let term_h = area.height as usize;
 
